@@ -7,6 +7,7 @@ def process_meta(file):
     fo = open("item-info", "w")
     for line in fi:
         obj = eval(line)
+        # SSY print out as and categories entries
         cat = obj["categories"][0][-1]
         print>>fo, obj["asin"] + "\t" + cat
 
@@ -16,6 +17,7 @@ def process_reviews(file):
     fo = open("reviews-info", "w")
     for line in fi:
         obj = eval(line)
+        # SSY print out reviewerID asin overall and unixReviewTime
         userID = obj["reviewerID"]
         itemID = obj["asin"]
         rating = obj["overall"]

@@ -50,7 +50,7 @@ def generator_queue(generator, max_q_size=20,
         q.close()
 
     return q, _stop, generator_threads
-
+# SSY this is the feature vector length
 EMBEDDING_DIM = 16
 HIDDEN_SIZE = 16 * 2 
 best_auc = 0.0
@@ -107,7 +107,7 @@ def train(
         test_iter = 50,
         save_iter = 100,
         model_type = 'DNN',
-        Memory_Size = 4,
+        Memory_Size = 4, # SSY memory slot 
         Mem_Induction = 0, 
         Util_Reg = 0
 ):
@@ -258,6 +258,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     SEED = args.random_seed
     Model_Type = args.model_type
+    # SSY parameter m , size of memory slot
     Memory_Size = args.memory_size
     Mem_Induction = args.mem_induction
     Util_Reg = args.util_reg

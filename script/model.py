@@ -12,8 +12,10 @@ class Model(object):
         self.reg = False
         self.use_negsample= use_negsample
         with tf.name_scope('Inputs'):
+            # SSY all his_batch_ph I dont understand
             self.mid_his_batch_ph = tf.placeholder(tf.int32, [None, None], name='mid_his_batch_ph')
             self.cate_his_batch_ph = tf.placeholder(tf.int32, [None, None], name='cate_his_batch_ph')
+            # SSY what is difference between batch with and without his
             self.uid_batch_ph = tf.placeholder(tf.int32, [None, ], name='uid_batch_ph')
             self.mid_batch_ph = tf.placeholder(tf.int32, [None, ], name='mid_batch_ph')
             self.cate_batch_ph = tf.placeholder(tf.int32, [None, ], name='cate_batch_ph')
@@ -23,8 +25,10 @@ class Model(object):
 
         # Embedding layer
         with tf.name_scope('Embedding_layer'):
-
+            # SSY the embedding table
             self.mid_embeddings_var = tf.get_variable("mid_embedding_var", [n_mid, EMBEDDING_DIM], trainable=True)
+            # SSY all embedded are the look up result from emb table
+            # SSY it seems that without his version is current while his version is history
             self.mid_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_batch_ph)
             self.mid_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_his_batch_ph)
 
@@ -32,7 +36,7 @@ class Model(object):
             self.cate_his_batch_embedded = tf.nn.embedding_lookup(self.mid_embeddings_var, self.cate_his_batch_ph)            
 
 
-        with tf.name_scope('init_operation'):    
+        with tf.name_scope('init_operation'):    # SSY who give me this inittiator?
             self.mid_embedding_placeholder = tf.placeholder(tf.float32,[n_mid, EMBEDDING_DIM], name="mid_emb_ph")
             self.mid_embedding_init = self.mid_embeddings_var.assign(self.mid_embedding_placeholder)
 
@@ -41,10 +45,11 @@ class Model(object):
             self.cate_neg_batch_ph = tf.placeholder(tf.int32, [None, None], name='neg_cate_his_batch_ph')
             self.neg_item_his_eb = tf.nn.embedding_lookup(self.mid_embeddings_var, self.mid_neg_batch_ph)
             self.neg_cate_his_eb = tf.nn.embedding_lookup(self.mid_embeddings_var, self.cate_neg_batch_ph)
-            self.neg_his_eb = tf.concat([self.neg_item_his_eb,self.neg_cate_his_eb], axis=2) * tf.reshape(self.mask,(BATCH_SIZE, SEQ_LEN, 1))   
-            
+            self.neg_his_eb = tf.concat([self.neg_item_his_eb,self.neg_cate_his_eb], axis=2) * tf.reshape(self.mask,(BATCH_SIZE, SEQ_LEN, 1))   # SSY where does mask come from?
+        # SSY with and without his
         self.item_eb = tf.concat([self.mid_batch_embedded, self.cate_batch_embedded], axis=1)
         self.item_his_eb = tf.concat([self.mid_his_batch_embedded,self.cate_his_batch_embedded], axis=2) * tf.reshape(self.mask,(BATCH_SIZE, SEQ_LEN, 1))
+        # SSY sum pooling on dim 1
         self.item_his_eb_sum = tf.reduce_sum(self.item_his_eb, 1)
 
     def build_fcn_net(self, inp, use_dice = False):
@@ -253,8 +258,7 @@ class Model_RUM(Model):
             state["controller_state"] = (1-tf.reshape(mask[:,t], (BATCH_SIZE, 1))) * begin_state["controller_state"] + tf.reshape(mask[:,t], (BATCH_SIZE, 1)) * state["controller_state"]
             state["M"] = (1-tf.reshape(mask[:,t], (BATCH_SIZE, 1, 1))) * begin_state["M"] + tf.reshape(mask[:,t], (BATCH_SIZE, 1, 1)) * state["M"]
             return state
-      
-        cell = rum.RUMCell(controller_units=HIDDEN_SIZE, memory_size=MEMORY_SIZE, memory_vector_dim=2*EMBEDDING_DIM,read_head_num=1, write_head_num=1,
+        cell = rum.RUMCell(controller_units=HIDDEN_SIZE, memory_size=MEMORY_SIZE, memory_vector_dim=2*EMBEDDING_DIM,read_head_num=1, write_head_num=1, 
             reuse=False, output_dim=HIDDEN_SIZE, clip_value=20, batch_size=BATCH_SIZE)
         
         state = cell.zero_state(BATCH_SIZE, tf.float32)
@@ -308,6 +312,7 @@ class Model_DIEN(Model):
         
 class Model_MIMN(Model):
     def __init__(self, n_uid, n_mid, EMBEDDING_DIM, HIDDEN_SIZE, BATCH_SIZE, MEMORY_SIZE, SEQ_LEN=400, Mem_Induction=0, Util_Reg=0, use_negsample=False, mask_flag=False):
+        # SSY creating the embedding
         super(Model_MIMN, self).__init__(n_uid, n_mid, EMBEDDING_DIM, HIDDEN_SIZE, 
                                            BATCH_SIZE, SEQ_LEN, use_negsample, Flag="MIMN")
         self.reg = Util_Reg
@@ -329,8 +334,9 @@ class Model_MIMN(Model):
                 cell.channel_rnn_output = temp_channel_rnn_output
 
             return state
-      
+        # SSY memory_size is number of mem slot
         cell = mimn.MIMNCell(controller_units=HIDDEN_SIZE, memory_size=MEMORY_SIZE, memory_vector_dim=2*EMBEDDING_DIM,read_head_num=1, write_head_num=1,
+            # SSY reuse 
             reuse=False, output_dim=HIDDEN_SIZE, clip_value=20, batch_size=BATCH_SIZE, mem_induction=Mem_Induction, util_reg=Util_Reg)
         
         state = cell.zero_state(BATCH_SIZE, tf.float32)
@@ -342,33 +348,40 @@ class Model_MIMN(Model):
         begin_state = state
         self.state_list = [state]
         self.mimn_o = []
-        for t in range(SEQ_LEN):
+        for t in range(SEQ_LEN): # SSY chain of gru cell with the same weight
+            # SSY calling __call__ of MIMNCell
+            # SSU his is the history sequence without current
             output, state, temp_output_list = cell(self.item_his_eb[:, t, :], state)
-            if mask_flag:
+            if mask_flag: # SSY it is false
                 state = clear_mask_state(state, begin_state, begin_channel_rnn_output, self.mask, cell, t)
             self.mimn_o.append(output)
             self.state_list.append(state)
                 
         self.mimn_o = tf.stack(self.mimn_o, axis=1)
         self.state_list.append(state)
+        # SSY hoho reduce_sum, I can do that on DIMM
         mean_memory = tf.reduce_mean(state['sum_aggre'], axis=-2)
 
         before_aggre = state['w_aggre']
-        read_out, _, _ = cell(self.item_eb, state)
+        # SSY this is the key component
+        read_out, _, _ = cell(self.item_eb, state) # SSY last item_eb is read out from emb table, and item_eb is current
         
         if use_negsample:
             aux_loss_1 = self.auxiliary_loss(self.mimn_o[:, :-1, :], self.item_his_eb[:, 1:, :],
                                              self.neg_his_eb[:, 1:, :], self.mask[:, 1:], stag = "bigru_0")
-            self.aux_loss = aux_loss_1  
+            self.aux_loss = aux_loss_1   #SSY used in build_fcn_net
 
         if self.reg:
             self.reg_loss = cell.capacity_loss(before_aggre)
         else:
-            self.reg_loss = tf.zeros(1)
-
+            self.reg_loss = tf.zeros(1) # SSY also used in build_fcn_net
+        # SSY building inp to fed into 
         if Mem_Induction == 1:
             channel_memory_tensor = tf.concat(temp_output_list, 1)            
             multi_channel_hist = din_attention(self.item_eb, channel_memory_tensor, HIDDEN_SIZE, None, stag='pal')
+            # SSY item_eb and item_his_eb_sum come from embedding layer, while item_his_eb_sum require an sum pooling
+            # SSY read_out is the last cell 
+            # SSY squeeze remove dim with size 1
             inp = tf.concat([self.item_eb, self.item_his_eb_sum, read_out, tf.squeeze(multi_channel_hist), mean_memory*self.item_eb], 1)
         else:
             inp = tf.concat([self.item_eb, self.item_his_eb_sum, read_out, mean_memory*self.item_eb], 1)

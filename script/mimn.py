@@ -15,14 +15,14 @@ def create_linear_initializer(input_size, dtype=tf.float32):
 class MIMNCell(tf.contrib.rnn.RNNCell):
     def __init__(self, controller_units, memory_size, memory_vector_dim, read_head_num, write_head_num, reuse=False, 
                  output_dim=None, clip_value=20, shift_range=1, batch_size=128, mem_induction=0, util_reg=0, sharp_value=2.):
-        self.controller_units = controller_units
-        self.memory_size = memory_size
+        self.controller_units = controller_units # SSY HIDDEN_SIZE
+        self.memory_size = memory_size # SSY memory slot
         self.memory_vector_dim = memory_vector_dim
         self.read_head_num = read_head_num
         self.write_head_num = write_head_num
         self.mem_induction = mem_induction
         self.util_reg = util_reg
-        self.reuse = reuse
+        self.reuse = reuse # SSY not sharing weight
         self.clip_value = clip_value
         self.sharp_value = sharp_value
         self.shift_range = shift_range
@@ -31,23 +31,24 @@ class MIMNCell(tf.contrib.rnn.RNNCell):
         def single_cell(num_units):
             return tf.nn.rnn_cell.GRUCell(num_units)
 
-        if self.mem_induction > 0:
-            self.channel_rnn = single_cell(self.memory_vector_dim)
+        if self.mem_induction > 0: # SSY it is 0 default
+            self.channel_rnn = single_cell(self.memory_vector_dim) # SSY 32
             self.channel_rnn_state = [self.channel_rnn.zero_state(batch_size, tf.float32) for i in range(memory_size)]
+            # SSY memory_vector_dim is the length of each slot, while memory_size is the nubmer of slot
             self.channel_rnn_output = [tf.zeros(((batch_size, self.memory_vector_dim))) for i in range(memory_size)]        
 
-        self.controller = single_cell(self.controller_units)
+        self.controller = single_cell(self.controller_units) # SSY only one call to single_cell? so MIMNCell is only cell only
         self.step = 0
         self.output_dim = output_dim
 
         self.o2p_initializer = create_linear_initializer(self.controller_units)
         self.o2o_initializer = create_linear_initializer(self.controller_units + self.memory_vector_dim * self.read_head_num)
 
-    def __call__(self, x, prev_state):
+    def __call__(self, x, prev_state): # SSY state is a list of kv with read_vector_list and controller_state
         prev_read_vector_list = prev_state["read_vector_list"]
 
         controller_input = tf.concat([x] + prev_read_vector_list, axis=1)
-        with tf.variable_scope('controller', reuse=self.reuse):
+        with tf.variable_scope('controller', reuse=self.reuse): # SSY I use false
             controller_output, controller_state = self.controller(controller_input, prev_state["controller_state"])
 
         num_parameters_per_head = self.memory_vector_dim + 1 + 1 + (self.shift_range * 2 + 1) + 1

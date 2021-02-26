@@ -9,6 +9,7 @@ import sys
 from utils import *
 import multiprocessing
 import argparse
+# SSY saved python variables
 import cPickle as pkl
 
 parser = argparse.ArgumentParser()
@@ -101,12 +102,12 @@ def eval(sess, test_data, model, model_path, batch_size):
 def train(
         train_file = "./data/book_data/book_train.txt",
         test_file = "./data/book_data/book_test.txt",
-        feature_file = "./data/book_data/book_feature.pkl",
+        feature_file = "./data/book_data/book_feature.pkl", # SSY loading back something saved
         batch_size = 128,
-        maxlen = 100,
+        maxlen = 100, # SSY seems to be the user behaviour seq length
         test_iter = 50,
         save_iter = 100,
-        model_type = 'DNN',
+        model_type = 'DNN',# SSY calling model type as first arg
         Memory_Size = 4, # SSY memory slot 
         Mem_Induction = 0, 
         Util_Reg = 0
@@ -114,7 +115,7 @@ def train(
     if model_type != "MIMN" or model_type != "MIMN_with_aux":
         model_path = "dnn_save_path/book_ckpt_noshuff" + model_type
         best_model_path = "dnn_best_model/book_ckpt_noshuff" + model_type
-    else:
+    else: # SSY MIMN with additional Memory_Size and Mem_Induction
         model_path = "dnn_save_path/book_ckpt_noshuff" + model_type+str(Memory_Size)+str(Mem_Induction)
         best_model_path = "dnn_best_model/book_ckpt_noshuff" + model_type+str(Memory_Size)+str(Mem_Induction)
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2) 
@@ -123,7 +124,8 @@ def train(
         train_data = DataIterator(train_file, batch_size, maxlen)
         test_data = DataIterator(test_file, batch_size, maxlen)    
         
-        feature_num = pkl.load(open(feature_file))
+        feature_num = pkl.load(open(feature_file)) # SSY loading back save python variable
+        # n_uid is not ued
         n_uid, n_mid = feature_num, feature_num
         BATCH_SIZE = batch_size
         SEQ_LEN = maxlen
@@ -146,7 +148,7 @@ def train(
             model = Model_DIEN(n_uid, n_mid, EMBEDDING_DIM, HIDDEN_SIZE, BATCH_SIZE, SEQ_LEN, use_negsample=True)
         elif model_type == 'MIMN':
             model = Model_MIMN(n_uid, n_mid, EMBEDDING_DIM, HIDDEN_SIZE, BATCH_SIZE, Memory_Size, SEQ_LEN, Mem_Induction, Util_Reg) 
-        elif model_type == 'MIMN_with_aux':
+        elif model_type == 'MIMN_with_aux': # SSY with neg samples
             model = Model_MIMN(n_uid, n_mid, EMBEDDING_DIM, HIDDEN_SIZE, BATCH_SIZE, Memory_Size, SEQ_LEN, Mem_Induction, Util_Reg, use_negsample=True) 
         else:
             print ("Invalid model_type : %s", model_type)
